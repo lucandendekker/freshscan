@@ -4,7 +4,11 @@
 
 Built by Lucan den Dekker for the first-year Deep Learning block of Applied Data Science & AI at Breda University of Applied Sciences. The project explores an accessible alternative to manual quality sorting for small potato growers.
 
-[Live demo](https://lucan5533-freshscan.hf.space/) | [Portfolio](https://lucandendekker.nl/portfolio/freshscan-image-classifier/)
+## Try it yourself
+
+**[Try FreshScan in my portfolio](https://lucandendekker.nl/portfolio/freshscan-image-classifier/)** — upload a potato image in the embedded dashboard and see the model's prediction.
+
+You can also [open the demo directly](https://lucan5533-freshscan.hf.space/).
 
 ## What is included
 
