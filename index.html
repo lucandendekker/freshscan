@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0A3131" />
+  <title>FreshScan — Potato Quality Classification System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:        #0A3131;
+      --bg2:       #0c3939;
+      --bg3:       #0f4343;
+      --bg4:       #124d4d;
+      --green:     #01AF50;
+      --green-dim: rgba(1,175,80,.13);
+      --green-glow:rgba(1,175,80,.28);
+      --red:       #BD4949;
+      --red-dim:   rgba(189,73,73,.13);
+      --white:     #FFFFFF;
+      --muted:     rgba(255,255,255,.55);
+      --faint:     rgba(255,255,255,.07);
+      --border:    rgba(255,255,255,.09);
+      --f:  'Barlow Condensed', sans-serif;
+      --fm: 'Share Tech Mono', monospace;
+      --r:  10px;
+      --shadow: 0 4px 24px rgba(0,0,0,.35);
+      --brightness: 1;
+    }
+    /* Night mode */
+    body.night {
+      --bg:    #040d0d;
+      --bg2:   #060f0f;
+      --bg3:   #081212;
+      --bg4:   #0a1818;
+      --faint: rgba(255,255,255,.05);
+      --border:rgba(255,255,255,.07);
+      --muted: rgba(255,255,255,.4);
+    }
+
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    html, body { width:100%; height:100%; overflow:hidden; }
+    body {
+      display:flex; flex-direction:column; height:100vh;
+      background:var(--bg); color:var(--white);
+      font-family:var(--f);
+      filter:brightness(var(--brightness));
+      transition:background .3s, filter .3s;
+    }
+    button { cursor:pointer; font-family:inherit; }
+    select, input { font-family:var(--fm); }
+    ::-webkit-scrollbar { width:5px; }
+    ::-webkit-scrollbar-track { background:var(--bg); }
+    ::-webkit-scrollbar-thumb { background:var(--bg4); border-radius:3px; }
+
+    /* ── HEADER ── */
+    .header {
+      flex-shrink:0;
+      display:flex; align-items:center; justify-content:space-between;
+      height:58px; padding:0 clamp(16px,3vw,32px);
+      background:rgba(10,49,49,.97);
+      border-bottom:1px solid var(--border);
+      backdrop-filter:blur(12px); z-index:200;
+    }
+    body.night .header { background:rgba(4,13,13,.97); }
+    .logo { display:flex; align-items:center; gap:12px; }
+.logo-name {
+      font-size:clamp(16px,2vw,22px); font-weight:800; letter-spacing:3px;
+      text-transform:uppercase; line-height:1;
+    }
+    .logo-name .fg { color:var(--green); }
+    .logo-sub {
+      font-family:var(--fm); font-size:clamp(7px,1vw,9px); letter-spacing:3px;
+      text-transform:uppercase; color:var(--muted); margin-top:2px;
+    }
+    .header-right { display:flex; align-items:center; gap:clamp(10px,2vw,20px); }
+    .status-pill {
+      display:flex; align-items:center; gap:7px;
+      padding:5px 14px; border:1px solid var(--green);
+      border-radius:20px; font-family:var(--fm); font-size:11px;
+      letter-spacing:1.5px; text-transform:uppercase; color:var(--green);
+      white-space:nowrap;
+    }
+    .pulse-dot {
+      width:7px; height:7px; border-radius:50%;
+      background:var(--green); animation:blink 2s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+    #clock { font-family:var(--fm); font-size:clamp(15px,1.5vw,21px); letter-spacing:2px; }
+
+    /* ── NAV ── */
+    .nav {
+      flex-shrink:0;
+      display:flex; justify-content:center; gap:6px; flex-wrap:wrap;
+      padding:clamp(6px,1vh,12px) clamp(16px,3vw,32px); border-bottom:1px solid var(--border);
+    }
+    .nav-btn {
+      padding:8px clamp(16px,3vw,36px); background:transparent;
+      border:1px solid var(--border); border-radius:7px;
+      color:var(--muted); font-family:var(--f); font-size:clamp(11px,1.2vw,14px);
+      font-weight:600; letter-spacing:2.5px; text-transform:uppercase;
+      transition:all .18s;
+    }
+    .nav-btn:hover { border-color:rgba(1,175,80,.5); color:var(--white); }
+    .nav-btn.active {
+      background:var(--green); border-color:var(--green);
+      color:var(--bg); box-shadow:0 0 12px var(--green-glow);
+    }
+
+    /* ── CONTENT ── */
+    .content {
+      flex:1; min-height:0; overflow:hidden;
+      padding:clamp(8px,1.2vh,20px) clamp(16px,3vw,32px);
+    }
+    .tab-pane { display:none; height:100%; }
+    .tab-pane.active { display:flex; flex-direction:column; height:100%; overflow:hidden; animation:fadeIn .2s ease; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── CARDS ── */
+    .card {
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:var(--r); box-shadow:var(--shadow);
+    }
+    .sec-title {
+      flex-shrink:0;
+      font-family:var(--fm); font-size:10px;
+      letter-spacing:2.5px; text-transform:uppercase;
+      color:var(--muted); margin-bottom:clamp(8px,1vh,14px);
+    }
+
+    /* ══════════════════════════════════════
+       DASHBOARD
+    ══════════════════════════════════════ */
+    .kpi-row {
+      flex-shrink:0;
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:clamp(8px,1vw,14px); margin-bottom:clamp(8px,1vh,14px);
+    }
+    @media (max-width:900px) { .kpi-row { grid-template-columns:repeat(2,1fr); } }
+    @media (max-width:480px) { .kpi-row { grid-template-columns:1fr; } }
+
+    .kpi {
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:var(--r); padding:clamp(8px,1.5vh,18px) clamp(12px,2vw,22px) clamp(6px,1.2vh,14px);
+      position:relative; overflow:hidden; box-shadow:var(--shadow);
+    }
+    .kpi::after {
+      content:''; position:absolute; top:0; left:0; right:0; height:3px;
+      border-radius:var(--r) var(--r) 0 0;
+    }
+    .kpi.total::after  { background:rgba(255,255,255,.25); }
+    .kpi.fresh::after  { background:var(--green); box-shadow:0 0 8px var(--green-glow); }
+    .kpi.rotten::after { background:var(--red); }
+    .kpi.acc::after    { background:linear-gradient(90deg,var(--green),#00e09a); }
+    .kpi-label {
+      font-family:var(--fm); font-size:10px; letter-spacing:2px;
+      text-transform:uppercase; color:var(--muted); margin-bottom:8px;
+    }
+    .kpi-val {
+      font-family:var(--fm); font-size:clamp(18px,min(3.5vw,5vh),44px); font-weight:800;
+      line-height:1; letter-spacing:-1px;
+    }
+    .kpi.total  .kpi-val { color:var(--white); }
+    .kpi.fresh  .kpi-val { color:var(--green); }
+    .kpi.rotten .kpi-val { color:var(--red); }
+    .kpi.acc    .kpi-val { color:var(--white); }
+    .kpi-sub { font-family:var(--fm); font-size:11px; color:var(--muted); margin-top:6px; }
+
+    .dash-grid {
+      flex:1; min-height:0; overflow:hidden;
+      display:grid; grid-template-columns:1fr minmax(200px,300px); gap:clamp(8px,1vw,14px);
+    }
+    @media (max-width:900px) { .dash-grid { grid-template-columns:1fr; } }
+
+    .chart-card {
+      display:flex; flex-direction:column; overflow:hidden; min-height:0;
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:var(--r); padding:clamp(12px,1.8vh,22px) clamp(14px,2vw,24px); box-shadow:var(--shadow);
+    }
+    .chart-top {
+      flex-shrink:0;
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:clamp(8px,1.2vh,18px); flex-wrap:wrap; gap:8px;
+    }
+    .chart-legend { display:flex; gap:16px; }
+    .leg-item {
+      display:flex; align-items:center; gap:6px;
+      font-family:var(--fm); font-size:11px; color:var(--muted);
+    }
+    .leg-dot { width:9px; height:9px; border-radius:2px; }
+
+    .scans-card {
+      display:flex; flex-direction:column; min-height:0; overflow:hidden;
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:var(--r); padding:clamp(10px,1.5vh,18px); box-shadow:var(--shadow);
+    }
+    .scans-grid { flex:1; min-height:0; overflow:hidden; display:grid; grid-template-columns:1fr 1fr; gap:8px; align-content:start; }
+    .thumb {
+      aspect-ratio:1; border-radius:7px; overflow:hidden;
+      position:relative; border:3px solid transparent; transition:transform .15s;
+    }
+    .thumb:hover { transform:scale(1.04); }
+    .thumb.t-fresh  { border-color:var(--green); }
+    .thumb.t-rotten { border-color:var(--red); }
+    .thumb-inner {
+      width:100%; height:100%;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .thumb-inner img { width:100%; height:100%; object-fit:cover; display:block; }
+    .thumb-badge {
+      position:absolute; bottom:5px; right:5px;
+      padding:2px 7px; border-radius:4px;
+      font-family:var(--fm); font-size:9px; letter-spacing:1px; font-weight:bold;
+    }
+    .thumb.t-fresh  .thumb-badge { background:var(--green); color:var(--bg); }
+    .thumb.t-rotten .thumb-badge { background:var(--red);   color:var(--white); }
+
+    /* ══════════════════════════════════════
+       COUNT
+    ══════════════════════════════════════ */
+    .count-hero { flex-shrink:0; display:grid; grid-template-columns:1fr 1fr 1fr; gap:clamp(8px,1vw,14px); margin-bottom:clamp(8px,1vh,14px); }
+    @media (max-width:700px) { .count-hero { grid-template-columns:1fr 1fr; } }
+    @media (max-width:480px) { .count-hero { grid-template-columns:1fr; } }
+
+    .count-card {
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:var(--r); padding:clamp(14px,2.5vh,32px) clamp(16px,3vw,28px);
+      text-align:center; box-shadow:var(--shadow);
+    }
+    .count-card.cc-total  { border-top:4px solid rgba(255,255,255,.25); }
+    .count-card.cc-total .count-big { color:var(--white); }
+    .count-card.cc-fresh  { border-top:4px solid var(--green); }
+    .count-card.cc-rotten { border-top:4px solid var(--red); }
+    .count-sub { font-family:var(--fm); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-top:6px; opacity:.6; }
+    .count-big {
+      font-family:var(--fm); font-size:clamp(28px,min(7vw,10vh),72px); font-weight:800;
+      line-height:1; margin-bottom:8px;
+    }
+    .cc-fresh  .count-big { color:var(--green); }
+    .cc-rotten .count-big { color:var(--red); }
+    .count-lbl { font-family:var(--fm); font-size:12px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); }
+
+    .bar-card {
+      flex-shrink:0;
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:var(--r); padding:clamp(12px,1.8vh,20px) 24px;
+      margin-bottom:clamp(8px,1vh,14px); box-shadow:var(--shadow);
+    }
+    .bar-row { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+    .bar-row:last-child { margin-bottom:0; }
+    .bar-lbl { width:70px; font-family:var(--fm); font-size:12px; letter-spacing:1.5px; text-transform:uppercase; }
+    .bar-lbl.bl-fresh  { color:var(--green); }
+    .bar-lbl.bl-rotten { color:var(--red); }
+    .bar-track { flex:1; height:10px; background:var(--faint); border-radius:5px; overflow:hidden; }
+    .bar-fill  { height:100%; border-radius:5px; transition:width 1.2s cubic-bezier(.4,0,.2,1); }
+    .bf-fresh  { background:var(--green); }
+    .bf-rotten { background:var(--red); }
+    .bar-pct { width:58px; text-align:right; font-family:var(--fm); font-size:13px; font-weight:600; }
+
+    .table-card {
+      flex:1; min-height:0;
+      display:flex; flex-direction:column;
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:var(--r); overflow:hidden; box-shadow:var(--shadow);
+    }
+    .table-scroll { flex:1; min-height:0; overflow-y:auto; overflow-x:auto; }
+    .table-head-bar {
+      flex-shrink:0;
+      padding:14px 22px; border-bottom:1px solid var(--border);
+      font-family:var(--fm); font-size:10px; letter-spacing:2.5px;
+      text-transform:uppercase; color:var(--muted);
+    }
+    table { width:100%; border-collapse:collapse; min-width:400px; }
+    th {
+      padding:11px 22px; text-align:left;
+      font-family:var(--fm); font-size:10px; letter-spacing:2px;
+      text-transform:uppercase; color:var(--muted);
+      background:rgba(255,255,255,.02); border-bottom:1px solid var(--border);
+    }
+    td {
+      padding:13px 22px; font-family:var(--fm); font-size:13px;
+      border-bottom:1px solid var(--border); transition:background .15s;
+    }
+    tr:last-child td { border-bottom:none; }
+    tbody tr:hover td { background:var(--faint); }
+    .td-g { color:var(--green); }
+    .td-r { color:var(--red); }
+    .td-m { color:var(--muted); }
+    .badge { padding:3px 10px; border-radius:20px; font-family:var(--fm); font-size:11px; }
+    .badge-green  { background:var(--green-dim); color:var(--green); }
+    .badge-yellow { background:rgba(255,200,0,.12); color:#ffc800; }
+
+    /* ══════════════════════════════════════
+       CAMERA
+    ══════════════════════════════════════ */
+    .cam-layout {
+      flex:1; min-height:0; overflow:hidden;
+      display:flex; gap:clamp(8px,1vw,14px);
+    }
+    @media (max-width:900px) {
+      .cam-layout { flex-direction:column; }
+    }
+
+    .cam-feed {
+      flex:1; min-width:0; min-height:0;
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:var(--r); overflow:hidden;
+      position:relative;
+      box-shadow:var(--shadow); cursor:pointer;
+    }
+    .cam-feed:hover .cam-hover-hint { opacity:1; }
+
+    .cam-placeholder {
+      width:100%; height:100%;
+      position:absolute; inset:0;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      gap:12px; background:#071c1c;
+      transition:background .2s;
+    }
+    .cam-feed:hover .cam-placeholder { background:#0a2424; }
+    .cp-icon { display:flex; align-items:center; justify-content:center; }
+    .cp-text { font-family:var(--fm); font-size:11px; letter-spacing:3px; text-transform:uppercase; opacity:.2; }
+    .cp-sub  { font-family:var(--fm); font-size:9px;  letter-spacing:2px; text-transform:uppercase; opacity:.12; margin-top:2px; }
+    .cp-hint {
+      margin-top:20px; display:flex; flex-direction:column;
+      align-items:center; gap:6px; opacity:.35;
+    }
+    .cp-hint-icon { font-size:28px; }
+    .cp-hint-text { font-family:var(--fm); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--green); }
+
+    #cam-preview {
+      display:none; position:absolute; inset:0;
+      width:100%; height:100%; object-fit:contain;
+      background:#071c1c;
+    }
+
+    .cam-hover-hint {
+      position:absolute; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      background:rgba(10,49,49,.6);
+      opacity:0; transition:opacity .2s; pointer-events:none;
+    }
+    .cam-hover-hint span {
+      font-family:var(--fm); font-size:12px; letter-spacing:2px;
+      text-transform:uppercase; color:var(--green);
+      border:1px solid var(--green); padding:8px 18px; border-radius:6px;
+    }
+
+    .cam-topbar {
+      position:absolute; top:0; left:0; right:0;
+      padding:12px 16px;
+      display:flex; align-items:center; justify-content:space-between;
+      background:linear-gradient(to bottom, rgba(10,49,49,.88), transparent);
+      pointer-events:none;
+    }
+    .live-badge { display:flex; align-items:center; gap:6px; font-family:var(--fm); font-size:11px; letter-spacing:1.5px; }
+    .live-dot   { width:8px; height:8px; border-radius:50%; background:var(--red); animation:blink 1s infinite; }
+    .cam-ts     { font-family:var(--fm); font-size:11px; color:var(--muted); }
+
+    .reticle {
+      position:absolute; top:50%; left:50%;
+      transform:translate(-50%,-50%);
+      width:clamp(100px,15vw,180px); height:clamp(100px,15vw,180px); pointer-events:none;
+    }
+    .reticle-border { position:absolute; inset:0; border:1.5px solid rgba(1,175,80,.3); border-radius:8px; }
+    .corner { position:absolute; width:18px; height:18px; border-color:var(--green); border-style:solid; }
+    .c-tl { top:-1px; left:-1px;    border-width:2px 0 0 2px; }
+    .c-tr { top:-1px; right:-1px;   border-width:2px 2px 0 0; }
+    .c-bl { bottom:-1px; left:-1px;  border-width:0 0 2px 2px; }
+    .c-br { bottom:-1px; right:-1px; border-width:0 2px 2px 0; }
+    .scan-line {
+      position:absolute; left:4px; right:4px; height:2px;
+      background:linear-gradient(90deg,transparent,var(--green),transparent);
+      top:0; animation:scanMove 2.5s ease-in-out infinite;
+      box-shadow:0 0 8px var(--green-glow);
+    }
+    @keyframes scanMove { 0%{top:0%;opacity:0} 5%{opacity:1} 95%{opacity:1} 100%{top:100%;opacity:0} }
+
+    .cam-bottombar {
+      position:absolute; bottom:0; left:0; right:0;
+      padding:10px 16px;
+      display:flex; align-items:center; justify-content:space-between;
+      background:linear-gradient(to top, rgba(10,49,49,.88), transparent);
+      pointer-events:none;
+    }
+    .cam-info    { font-family:var(--fm); font-size:10px; letter-spacing:1.5px; color:var(--muted); }
+    .scan-ticker { font-family:var(--fm); font-size:10px; letter-spacing:1.5px; color:var(--green); }
+
+    #file-input { display:none; }
+
+    .cam-side { width:clamp(240px,22vw,300px); flex-shrink:0; display:flex; flex-direction:column; gap:clamp(8px,1vh,14px); min-height:0; overflow:hidden; }
+
+    .result-card {
+      flex-shrink:0;
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:var(--r); padding:clamp(12px,1.8vh,20px) clamp(14px,2vw,22px); box-shadow:var(--shadow);
+    }
+    .res-idle {
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; padding:12px 0; gap:8px;
+      color:var(--muted);
+    }
+    .res-idle-icon { font-size:32px; opacity:.3; }
+    .res-idle-txt  { font-family:var(--fm); font-size:10px; letter-spacing:2px; text-transform:uppercase; opacity:.4; }
+
+    .res-result { display:none; }
+    .res-top { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+    .res-icon {
+      width:52px; height:52px; border-radius:50%; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center; font-size:24px;
+    }
+    .res-icon.ri-fresh  { background:var(--green-dim); }
+    .res-icon.ri-rotten { background:var(--red-dim); }
+    .res-name { font-size:32px; font-weight:800; text-transform:uppercase; letter-spacing:2px; line-height:1; }
+    .res-name.rn-fresh  { color:var(--green); }
+    .res-name.rn-rotten { color:var(--red); }
+    .res-time { font-family:var(--fm); font-size:11px; color:var(--muted); margin-top:3px; }
+
+    .conf-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .conf-row:last-child { margin-bottom:0; }
+    .conf-lbl { width:56px; font-family:var(--fm); font-size:10.5px; letter-spacing:1px; text-transform:uppercase; }
+    .conf-lbl.cl-fresh  { color:var(--green); }
+    .conf-lbl.cl-rotten { color:var(--red); }
+    .conf-track { flex:1; height:7px; background:var(--faint); border-radius:4px; overflow:hidden; }
+    .conf-fill  { height:100%; border-radius:4px; transition:width .7s ease; }
+    .cf-fresh   { background:var(--green); }
+    .cf-rotten  { background:var(--red); }
+    .conf-pct { width:44px; text-align:right; font-family:var(--fm); font-size:12.5px; font-weight:600; }
+
+    .classify-bar {
+      position:absolute; bottom:36px; left:50%; transform:translateX(-50%);
+      display:none;
+      pointer-events:all;
+    }
+    .classify-btn {
+      display:flex; align-items:center; gap:8px;
+      padding:11px 32px;
+      background:var(--green); border:none; border-radius:8px;
+      color:var(--bg); font-family:var(--fm); font-size:13px;
+      letter-spacing:2px; text-transform:uppercase;
+      box-shadow:0 0 20px var(--green-glow); transition:all .2s;
+      white-space:nowrap;
+    }
+    .classify-btn:hover { background:#02c75c; box-shadow:0 0 28px var(--green-glow); }
+    .classify-btn:disabled { opacity:.5; cursor:not-allowed; }
+    .spinner {
+      width:14px; height:14px; border:2px solid rgba(10,49,49,.4);
+      border-top-color:var(--bg); border-radius:50%;
+      animation:spin .7s linear infinite; display:none;
+    }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    .error-msg {
+      position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+      font-family:var(--fm); font-size:11px; color:var(--red);
+      letter-spacing:1px; white-space:nowrap; display:none;
+    }
+
+    /* ══════════════════════════════════════
+       SETTINGS
+    ══════════════════════════════════════ */
+    .settings-grid {
+      flex:1; min-height:0;
+      display:grid; grid-template-columns:1fr 1fr; gap:clamp(8px,1vw,14px);
+      align-content:start; overflow:hidden;
+    }
+    @media (max-width:700px) { .settings-grid { grid-template-columns:1fr; } }
+
+    .set-card { background:var(--bg3); border:1px solid var(--border); border-radius:var(--r); overflow-y:auto; max-height:100%; box-shadow:var(--shadow); }
+    .set-head { padding:14px 22px; border-bottom:1px solid var(--border); font-family:var(--fm); font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); background:rgba(255,255,255,.02); }
+    .set-row { display:flex; align-items:center; justify-content:space-between; padding:15px 22px; border-bottom:1px solid var(--border); transition:background .15s; gap:12px; }
+    .set-row:last-child { border-bottom:none; }
+    .set-row:hover { background:var(--faint); }
+    .set-lbl { font-family:var(--fm); font-size:12.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+    .set-val { display:flex; align-items:center; gap:8px; font-family:var(--fm); font-size:12.5px; color:var(--white); flex-wrap:wrap; justify-content:flex-end; }
+    .tog { position:relative; width:44px; height:24px; flex-shrink:0; }
+    .tog input { opacity:0; width:0; height:0; position:absolute; }
+    .tog-s { position:absolute; inset:0; background:var(--faint); border:1px solid var(--border); border-radius:12px; cursor:pointer; transition:.25s; }
+    .tog-s::before { content:''; position:absolute; width:18px; height:18px; border-radius:50%; left:2px; top:2px; background:var(--muted); transition:.25s; }
+    .tog input:checked ~ .tog-s { background:var(--green); border-color:var(--green); }
+    .tog input:checked ~ .tog-s::before { transform:translateX(20px); background:var(--bg); }
+    .rng { -webkit-appearance:none; width:clamp(80px,10vw,140px); height:5px; border-radius:3px; outline:none; }
+    .rng::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; border-radius:50%; background:var(--white); cursor:pointer; }
+    .sel { background:var(--bg2); border:1px solid var(--border); border-radius:5px; color:var(--white); padding:4px 8px; outline:none; cursor:pointer; }
+    .sel:focus { border-color:var(--green); }
+    .btn { padding:7px 16px; border-radius:6px; font-family:var(--fm); font-size:11px; letter-spacing:1.5px; text-transform:uppercase; border:1px solid; transition:all .2s; }
+    .btn-clear { background:var(--red-dim); border-color:var(--red); color:var(--red); }
+    .btn-clear:hover { background:var(--red); color:var(--white); }
+    .btn-dl { background:var(--green-dim); border-color:var(--green); color:var(--green); }
+    .btn-dl:hover { background:var(--green); color:var(--bg); }
+    .bright-val { font-size:11px; color:var(--muted); min-width:30px; text-align:right; }
+
+    /* Editable machine ID */
+    .editable-id {
+      background:transparent; border:none; border-bottom:1px dashed var(--muted);
+      color:var(--muted); font-family:var(--fm); font-size:12.5px;
+      outline:none; width:90px; text-align:right;
+    }
+    .editable-id:focus { border-bottom-color:var(--green); color:var(--white); }
+
+    /* Sleep screen */
+    #sleep-screen {
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; align-items:center; justify-content:center;
+      flex-direction:column; gap:16px;
+      cursor:pointer;
+    }
+    #sleep-screen.active { display:flex; }
+    .sleep-logo { font-size:clamp(40px,8vw,72px); opacity:.15; }
+    .sleep-txt  {
+      font-family:var(--fm); font-size:clamp(10px,1.5vw,14px);
+      letter-spacing:4px; text-transform:uppercase; color:rgba(255,255,255,.12);
+    }
+
+    /* ── UTILITY ── */
+    .col-g { color:var(--green); }
+    .col-r { color:var(--red); }
+    .col-m { color:var(--muted); }
+
+    /* Toast notification */
+    .toast {
+      position:fixed; bottom:24px; right:24px; z-index:999;
+      background:var(--bg4); border:1px solid var(--border);
+      border-radius:8px; padding:12px 20px;
+      font-family:var(--fm); font-size:12px; letter-spacing:1.5px;
+      color:var(--white); box-shadow:var(--shadow);
+      transform:translateY(20px); opacity:0;
+      transition:all .3s ease; pointer-events:none;
+    }
+    .toast.show { transform:translateY(0); opacity:1; }
+
+    /* ══════════════════════════════════════
+       MOBILE / RESPONSIVE OVERRIDES
+    ══════════════════════════════════════ */
+
+    /* Allow scrolling on small screens — no-scroll only on desktop */
+    @media (max-width:768px) {
+      html, body { height:auto; overflow:auto; }
+      body { height:auto; min-height:100vh; }
+      .content { overflow:visible; flex:none; }
+      .tab-pane.active { overflow:visible; height:auto; flex:none; display:block; }
+
+      /* Header compact */
+      .header { height:auto; padding:10px 16px; flex-wrap:wrap; gap:8px; }
+      .logo-sub { display:none; }
+      .logo-name { font-size:18px; }
+      .status-pill { padding:4px 10px; font-size:10px; }
+      #clock { font-size:14px; }
+
+      /* Nav — horizontal scroll on tiny screens */
+      .nav { gap:4px; padding:8px 12px; overflow-x:auto; flex-wrap:nowrap; justify-content:flex-start; }
+      .nav-btn { padding:7px 16px; font-size:11px; white-space:nowrap; flex-shrink:0; }
+
+      /* KPI — 2 cols on mobile */
+      .kpi-row { grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+      .kpi { padding:12px 14px 10px; }
+      .kpi-val { font-size:clamp(20px,6vw,36px); }
+      .kpi-sub { font-size:10px; }
+
+      /* Dashboard grid — stack on mobile */
+      .dash-grid { display:flex; flex-direction:column; gap:10px; min-height:auto; }
+      .chart-card { padding:14px; min-height:200px; }
+      #chartMain { min-height:160px; }
+
+      /* Count hero — 1 col on mobile */
+      .count-hero { grid-template-columns:1fr; gap:8px; }
+      .count-big { font-size:clamp(36px,12vw,60px); }
+      .count-card { padding:20px 16px; }
+
+      /* Bar card */
+      .bar-card { padding:14px 16px; }
+
+      /* Table */
+      .table-card { min-height:auto; }
+      .table-scroll { overflow-x:auto; }
+      table { min-width:380px; }
+      td, th { padding:10px 14px; font-size:12px; }
+
+      /* Camera — stack */
+      .cam-layout { flex-direction:column; gap:10px; min-height:auto; }
+      .cam-feed { min-height:240px; height:55vw; flex:none; }
+      .cam-side { width:100%; flex-shrink:unset; }
+      .result-card { padding:14px; }
+      .scans-grid { grid-template-columns:1fr 1fr; gap:6px; }
+
+      /* Settings */
+      .settings-grid { grid-template-columns:1fr; gap:8px; overflow:visible; min-height:auto; }
+      .set-card { max-height:none; overflow:visible; }
+      .set-row { padding:12px 16px; }
+      .set-lbl { font-size:11px; }
+
+      /* Thumbs */
+      .thumb { border-width:2px; }
+
+      /* Scans card */
+      .scans-card { min-height:auto; }
+
+      /* Hide sleep screen on mobile */
+      #sleep-screen { display:none !important; }
+    }
+
+    @media (max-width:400px) {
+      .kpi-row { grid-template-columns:1fr 1fr; }
+      .nav-btn { padding:6px 12px; font-size:10px; }
+      .count-big { font-size:clamp(28px,10vw,48px); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <div>
+      <div class="logo-name"><span class="fg">FRESH</span><span>SCAN</span></div>
+      <div class="logo-sub" data-i18n="tagline">Potato Quality Classification System</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill"><div class="pulse-dot"></div><span data-i18n="machine_online">Machine Online</span></div>
+    <div id="clock">--:--:--</div>
+  </div>
+</header>
+
+<!-- NAV -->
+<nav class="nav">
+  <button class="nav-btn active" data-tab="dashboard" data-i18n="nav_dashboard">Dashboard</button>
+  <button class="nav-btn"        data-tab="count"     data-i18n="nav_count">Count</button>
+  <button class="nav-btn"        data-tab="camera"    data-i18n="nav_camera">Camera</button>
+  <button class="nav-btn"        data-tab="settings"  data-i18n="nav_settings">Settings</button>
+</nav>
+
+<main class="content">
+
+  <!-- ═══ DASHBOARD ═══ -->
+  <div class="tab-pane active" id="tab-dashboard">
+    <div class="kpi-row">
+      <div class="kpi total">
+        <div class="kpi-label" data-i18n="kpi_total">Total Scans Today</div>
+        <div class="kpi-val" id="kv-total">3,000</div>
+        <div class="kpi-sub col-m">Last 24 Hours</div>
+      </div>
+      <div class="kpi fresh">
+        <div class="kpi-label" data-i18n="kpi_fresh">Fresh</div>
+        <div class="kpi-val" id="kv-fresh">2,850</div>
+        <div class="kpi-sub col-g" data-i18n="kpi_fresh_sub">&#8593; Accepted</div>
+      </div>
+      <div class="kpi rotten">
+        <div class="kpi-label" data-i18n="kpi_rotten">Rotten</div>
+        <div class="kpi-val" id="kv-rotten">150</div>
+        <div class="kpi-sub col-r" data-i18n="kpi_rotten_sub">&#8595; Rejected</div>
+      </div>
+      <div class="kpi acc">
+        <div class="kpi-label" data-i18n="kpi_acc">Acceptance Rate</div>
+        <div class="kpi-val" id="kv-acc">95.0%</div>
+        <div class="kpi-sub col-m">Model acc. 97.32%</div>
+      </div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="chart-card">
+        <div class="chart-top">
+          <div class="sec-title" style="margin-bottom:0" data-i18n="chart_title">Scans Per Hour — Today</div>
+          <div class="chart-legend">
+            <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div><span data-i18n="fresh">Fresh</span></div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--red)"></div><span data-i18n="rotten">Rotten</span></div>
+          </div>
+        </div>
+        <canvas id="chartMain" style="flex:1;min-height:0;"></canvas>
+      </div>
+      <div class="scans-card">
+        <div class="sec-title" data-i18n="recent_scans">Recent Scans</div>
+        <div class="scans-grid" id="scans-dash"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ COUNT ═══ -->
+  <div class="tab-pane" id="tab-count">
+    <div class="count-hero">
+      <div class="count-card cc-total">
+        <div class="count-big" id="cnt-total">3,000</div>
+        <div class="count-lbl">Total Scans Today</div>
+        <div class="count-sub">Last 24 Hours</div>
+      </div>
+      <div class="count-card cc-fresh">
+        <div class="count-big" id="cnt-fresh">2,850</div>
+        <div class="count-lbl" data-i18n="fresh_accepted">Fresh — Accepted</div>
+      </div>
+      <div class="count-card cc-rotten">
+        <div class="count-big" id="cnt-rotten">150</div>
+        <div class="count-lbl" data-i18n="rotten_rejected">Rotten — Rejected</div>
+      </div>
+    </div>
+    <div class="bar-card">
+      <div class="bar-row">
+        <div class="bar-lbl bl-fresh" data-i18n="fresh">Fresh</div>
+        <div class="bar-track"><div class="bar-fill bf-fresh" id="bar-fresh" style="width:95%"></div></div>
+        <div class="bar-pct col-g" id="pct-fresh">95.00%</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-lbl bl-rotten" data-i18n="rotten">Rotten</div>
+        <div class="bar-track"><div class="bar-fill bf-rotten" id="bar-rotten" style="width:5%"></div></div>
+        <div class="bar-pct col-r" id="pct-rotten">5.00%</div>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-head-bar" data-i18n="batch_history">Batch History</div>
+      <div class="table-scroll"><table>
+        <thead>
+          <tr>
+            <th data-i18n="th_batch">Batch</th>
+            <th data-i18n="th_time">Time</th>
+            <th data-i18n="th_total">Total</th>
+            <th data-i18n="fresh">Fresh</th>
+            <th data-i18n="rotten">Rotten</th>
+            <th data-i18n="th_rate">Acceptance Rate</th>
+          </tr>
+        </thead>
+        <tbody id="batch-body"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- ═══ CAMERA ═══ -->
+  <div class="tab-pane" id="tab-camera">
+    <div class="cam-layout">
+
+      <div class="cam-feed" id="cam-feed"
+           onclick="triggerUpload()"
+           ondragover="event.preventDefault();this.style.borderColor='var(--green)'"
+           ondragleave="this.style.borderColor=''"
+           ondrop="handleDrop(event)">
+
+        <div class="cam-placeholder" id="cam-placeholder">
+          <div class="cp-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:.18"><path d="M12 16C13.6569 16 15 14.6569 15 13C15 11.3431 13.6569 10 12 10C10.3431 10 9 11.3431 9 13C9 14.6569 10.3431 16 12 16Z" stroke="#01AF50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16.8V9.2C3 8.0799 3 7.51984 3.21799 7.09202C3.40973 6.71569 3.71569 6.40973 4.09202 6.21799C4.51984 6 5.0799 6 6.2 6H7.25464C7.37758 6 7.43905 6 7.49576 5.9935C7.79166 5.95961 8.05705 5.79559 8.21969 5.54609C8.25086 5.49827 8.27836 5.44328 8.33333 5.33333C8.44329 5.11342 8.49827 5.00346 8.56062 4.90782C8.8859 4.40882 9.41668 4.08078 10.0085 4.01299C10.1219 4 10.2448 4 10.4907 4H13.5093C13.7552 4 13.8781 4 13.9915 4.01299C14.5833 4.08078 15.1141 4.40882 15.4394 4.90782C15.5017 5.00345 15.5567 5.11345 15.6667 5.33333C15.7216 5.44329 15.7491 5.49827 15.7803 5.54609C15.943 5.79559 16.2083 5.95961 16.5042 5.9935C16.561 6 16.6224 6 16.7454 6H17.8C18.9201 6 19.4802 6 19.908 6.21799C20.2843 6.40973 20.5903 6.71569 20.782 7.09202C21 7.51984 21 8.0799 21 9.2V16.8C21 17.9201 21 18.4802 20.782 18.908C20.5903 19.2843 20.2843 19.5903 19.908 19.782C19.4802 20 18.9201 20 17.8 20H6.2C5.0799 20 4.51984 20 4.09202 19.782C3.71569 19.5903 3.40973 19.2843 3.21799 18.908C3 18.4802 3 17.9201 3 16.8Z" stroke="#01AF50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="cp-text" data-i18n="cam_feed">Camera Feed</div>
+          <div class="cp-sub">FSM-003 · Conveyor Belt Camera</div>
+          <div class="cp-hint">
+            <div class="cp-hint-icon">&#8593;</div>
+            <div class="cp-hint-text" data-i18n="cam_hint">Click or drop an image to classify</div>
+          </div>
+        </div>
+
+        <img id="cam-preview" alt="Potato" />
+
+        <div class="cam-hover-hint"><span data-i18n="cam_change">Click to change image</span></div>
+
+        <div class="cam-topbar" id="cam-topbar" style="display:none">
+          <div class="live-badge">
+            <div class="live-dot"></div>
+            <span style="font-family:var(--fm);font-size:11px;letter-spacing:1.5px">LIVE</span>
+          </div>
+          <div class="cam-ts" id="cam-ts">--:--:--</div>
+        </div>
+
+        <div class="reticle" id="cam-reticle" style="display:none">
+          <div class="reticle-border"></div>
+          <div class="corner c-tl"></div><div class="corner c-tr"></div>
+          <div class="corner c-bl"></div><div class="corner c-br"></div>
+          <div class="scan-line"></div>
+        </div>
+
+        <div class="cam-bottombar" id="cam-bottombar" style="display:none">
+          <div class="cam-info">FSM-003 · CONVEYOR-A · 224x224</div>
+          <div class="scan-ticker" id="scan-ticker">SCAN #3000</div>
+        </div>
+
+        <div class="classify-bar" id="classify-bar">
+          <button class="classify-btn" id="classify-btn" onclick="runPredict(event)">
+            <span id="btn-label" data-i18n="classify">Classify Potato</span>
+            <span id="btn-spinner" class="spinner"></span>
+          </button>
+        </div>
+
+        <div class="error-msg" id="error-msg"></div>
+        <input type="file" id="file-input" accept="image/*" />
+      </div>
+
+      <div class="cam-side">
+        <div class="result-card">
+          <div class="sec-title" data-i18n="last_class">Last Classification</div>
+
+          <div class="res-idle" id="res-idle">
+            <div class="res-idle-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:.25"><path d="M12 16C13.6569 16 15 14.6569 15 13C15 11.3431 13.6569 10 12 10C10.3431 10 9 11.3431 9 13C9 14.6569 10.3431 16 12 16Z" stroke="#01AF50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16.8V9.2C3 8.0799 3 7.51984 3.21799 7.09202C3.40973 6.71569 3.71569 6.40973 4.09202 6.21799C4.51984 6 5.0799 6 6.2 6H7.25464C7.37758 6 7.43905 6 7.49576 5.9935C7.79166 5.95961 8.05705 5.79559 8.21969 5.54609C8.25086 5.49827 8.27836 5.44328 8.33333 5.33333C8.44329 5.11342 8.49827 5.00346 8.56062 4.90782C8.8859 4.40882 9.41668 4.08078 10.0085 4.01299C10.1219 4 10.2448 4 10.4907 4H13.5093C13.7552 4 13.8781 4 13.9915 4.01299C14.5833 4.08078 15.1141 4.40882 15.4394 4.90782C15.5017 5.00345 15.5567 5.11345 15.6667 5.33333C15.7216 5.44329 15.7491 5.49827 15.7803 5.54609C15.943 5.79559 16.2083 5.95961 16.5042 5.9935C16.561 6 16.6224 6 16.7454 6H17.8C18.9201 6 19.4802 6 19.908 6.21799C20.2843 6.40973 20.5903 6.71569 20.782 7.09202C21 7.51984 21 8.0799 21 9.2V16.8C21 17.9201 21 18.4802 20.782 18.908C20.5903 19.2843 20.2843 19.5903 19.908 19.782C19.4802 20 18.9201 20 17.8 20H6.2C5.0799 20 4.51984 20 4.09202 19.782C3.71569 19.5903 3.40973 19.2843 3.21799 18.908C3 18.4802 3 17.9201 3 16.8Z" stroke="#01AF50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div class="res-idle-txt" data-i18n="upload_hint">Upload an image to classify</div>
+          </div>
+
+          <div class="res-result" id="res-result">
+            <div class="res-top">
+              <div class="res-icon ri-fresh" id="res-icon">&#9989;</div>
+              <div>
+                <div class="res-name rn-fresh" id="res-name">FRESH</div>
+                <div class="res-time" id="res-time">--:--:--</div>
+              </div>
+            </div>
+            <div class="conf-row">
+              <div class="conf-lbl cl-fresh" data-i18n="fresh">Fresh</div>
+              <div class="conf-track"><div class="conf-fill cf-fresh" id="cf-fresh" style="width:0%"></div></div>
+              <div class="conf-pct col-g" id="cp-fresh">0%</div>
+            </div>
+            <div class="conf-row">
+              <div class="conf-lbl cl-rotten" data-i18n="rotten">Rotten</div>
+              <div class="conf-track"><div class="conf-fill cf-rotten" id="cf-rotten" style="width:0%"></div></div>
+              <div class="conf-pct col-r" id="cp-rotten">0%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="scans-card">
+          <div class="sec-title" data-i18n="recent_scans">Recent Scans</div>
+          <div class="scans-grid" id="scans-cam"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ SETTINGS ═══ -->
+  <div class="tab-pane" id="tab-settings">
+    <div class="settings-grid">
+      <div class="set-card">
+        <div class="set-head" data-i18n="set_system">System</div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_language">Language</div>
+          <div class="set-val">
+            <select class="sel" id="set-lang" onchange="setLanguage(this.value)">
+              <option value="en">ENG</option>
+              <option value="nl">NLD</option>
+              <option value="de">DEU</option>
+              <option value="fr">FRA</option>
+            </select>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_night">Night Mode</div>
+          <div class="set-val">
+            <label class="tog">
+              <input type="checkbox" id="tog-night" onchange="setNightMode(this.checked)" />
+              <span class="tog-s"></span>
+            </label>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_brightness">Screen Brightness</div>
+          <div class="set-val">
+            <input type="range" class="rng" id="rng-bright" min="20" max="100" value="100"
+                   oninput="setBrightness(this.value)" />
+            <span class="bright-val" id="bright-val">100%</span>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_datetime">Date &amp; Time</div>
+          <div class="set-val"><span class="col-m" id="set-tz" style="font-size:12px">CEST</span><span style="color:var(--muted)">&#8250;</span></div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_autoshutdown">Auto Shut Down</div>
+          <div class="set-val">
+            <label class="tog">
+              <input type="checkbox" checked id="tog-shutdown" />
+              <span class="tog-s"></span>
+            </label>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_machineid">Machine ID</div>
+          <div class="set-val">
+            <input class="editable-id" id="machine-id" value="FSM-003"
+                   onchange="updateMachineId(this.value)"
+                   title="Click to edit" />
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl">Auto-Classify</div>
+          <div class="set-val">
+            <label class="tog">
+              <input type="checkbox" id="tog-autoclassify" />
+              <span class="tog-s"></span>
+            </label>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl">Scan Overlay</div>
+          <div class="set-val">
+            <label class="tog">
+              <input type="checkbox" id="tog-overlay" checked />
+              <span class="tog-s"></span>
+            </label>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_version">Software Version</div>
+          <div class="set-val col-g">v1.4.2</div>
+        </div>
+      </div>
+
+      <div class="set-card">
+        <div class="set-head" data-i18n="set_logging">Logging</div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_autosave">Auto-Save Scans</div>
+          <div class="set-val">
+            <label class="tog">
+              <input type="checkbox" checked id="tog-autosave" />
+              <span class="tog-s"></span>
+            </label>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_export">Export Format</div>
+          <div class="set-val">
+            <select class="sel" id="set-export">
+              <option>CSV</option><option>JSON</option><option>XLSX</option>
+            </select>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_retention">Retention Period</div>
+          <div class="set-val">
+            <select class="sel">
+              <option>7 Days</option><option>14 Days</option>
+              <option>30 Days</option><option>90 Days</option>
+            </select>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_loglevel">Log Detail Level</div>
+          <div class="set-val">
+            <select class="sel"><option>Full</option><option>Summary</option><option>Errors Only</option></select>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_storage">Storage Location</div>
+          <div class="set-val" style="font-size:12px;color:var(--muted)">/logs/FSM-003</div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_clear">Clear All Logs</div>
+          <div class="set-val">
+            <button class="btn btn-clear" onclick="clearLogs()" data-i18n="btn_clear">Clear</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-lbl" data-i18n="set_download">Download Log</div>
+          <div class="set-val">
+            <button class="btn btn-dl" onclick="downloadLog()" data-i18n="btn_download">Download</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Sleep screen -->
+<div id="sleep-screen" onclick="wakeUp()">
+  <div class="sleep-logo">🥔</div>
+  <div class="sleep-txt">FreshScan FSM-003 — Click to wake</div>
+</div>
+
+<script>
+/* ══ TRANSLATIONS ══ */
+const TRANSLATIONS = {
+  en: {
+    tagline:'Potato Quality Classification System',
+    machine_online:'Machine Online',
+    nav_dashboard:'Dashboard', nav_count:'Count', nav_camera:'Camera', nav_settings:'Settings',
+    kpi_total:'Total Scans Today', kpi_total_sub:'Scans processed',
+    kpi_fresh:'Fresh', kpi_fresh_sub:'↑ Accepted',
+    kpi_rotten:'Rotten', kpi_rotten_sub:'↓ Rejected',
+    kpi_acc:'Acceptance Rate',
+    chart_title:'Scans Per Hour — Today',
+    fresh:'Fresh', rotten:'Rotten',
+    recent_scans:'Recent Scans',
+    fresh_accepted:'Fresh — Accepted', rotten_rejected:'Rotten — Rejected',
+    batch_history:'Batch History',
+    th_batch:'Batch', th_time:'Time', th_total:'Total', th_rate:'Acceptance Rate',
+    cam_feed:'Camera Feed', cam_hint:'Click or drop an image to classify',
+    cam_change:'Click to change image',
+    last_class:'Last Classification', upload_hint:'Upload an image to classify',
+    classify:'Classify Potato',
+    set_system:'System', set_language:'Language', set_night:'Night Mode',
+    set_brightness:'Screen Brightness', set_datetime:'Date & Time',
+    set_autoshutdown:'Auto Shut Down', set_machineid:'Machine ID',
+    set_version:'Software Version',
+    set_logging:'Logging', set_autosave:'Auto-Save Scans',
+    set_export:'Export Format', set_retention:'Retention Period',
+    set_loglevel:'Log Detail Level', set_storage:'Storage Location',
+    set_clear:'Clear All Logs', set_download:'Download Log',
+    btn_clear:'Clear', btn_download:'Download',
+    toast_night_on:'Night mode enabled', toast_night_off:'Night mode disabled',
+    toast_logs_cleared:'Logs cleared',
+    alert_confirm_clear:'Clear all logs?',
+  },
+  nl: {
+    tagline:'Aardappel Kwaliteitsclassificatie Systeem',
+    machine_online:'Machine Online',
+    nav_dashboard:'Dashboard', nav_count:'Telling', nav_camera:'Camera', nav_settings:'Instellingen',
+    kpi_total:'Totaal Scans Vandaag', kpi_total_sub:'Verwerkte scans',
+    kpi_fresh:'Vers', kpi_fresh_sub:'↑ Geaccepteerd',
+    kpi_rotten:'Rot', kpi_rotten_sub:'↓ Afgekeurd',
+    kpi_acc:'Acceptatiegraad',
+    chart_title:'Scans Per Uur — Vandaag',
+    fresh:'Vers', rotten:'Rot',
+    recent_scans:'Recente Scans',
+    fresh_accepted:'Vers — Geaccepteerd', rotten_rejected:'Rot — Afgekeurd',
+    batch_history:'Batchgeschiedenis',
+    th_batch:'Batch', th_time:'Tijd', th_total:'Totaal', th_rate:'Acc. Graad',
+    cam_feed:'Camerafeed', cam_hint:'Klik of sleep een afbeelding om te classificeren',
+    cam_change:'Klik om afbeelding te wijzigen',
+    last_class:'Laatste Classificatie', upload_hint:'Upload een afbeelding om te classificeren',
+    classify:'Classificeer Aardappel',
+    set_system:'Systeem', set_language:'Taal', set_night:'Nachtmodus',
+    set_brightness:'Schermhelderheid', set_datetime:'Datum &amp; Tijd',
+    set_autoshutdown:'Auto Uitschakelen', set_machineid:'Machine ID',
+    set_version:'Softwareversie',
+    set_logging:'Logboek', set_autosave:'Scans Automatisch Opslaan',
+    set_export:'Exportindeling', set_retention:'Bewaarperiode',
+    set_loglevel:'Log Detailniveau', set_storage:'Opslaglocatie',
+    set_clear:'Alle Logs Wissen', set_download:'Log Downloaden',
+    btn_clear:'Wis', btn_download:'Download',
+    toast_night_on:'Nachtmodus ingeschakeld', toast_night_off:'Nachtmodus uitgeschakeld',
+    toast_logs_cleared:'Logs gewist',
+    alert_confirm_clear:'Alle logs wissen?',
+  },
+  de: {
+    tagline:'Kartoffel Qualitätsklassifikation',
+    machine_online:'Maschine Online',
+    nav_dashboard:'Dashboard', nav_count:'Zählung', nav_camera:'Kamera', nav_settings:'Einstellungen',
+    kpi_total:'Scans Heute', kpi_total_sub:'Verarbeitete Scans',
+    kpi_fresh:'Frisch', kpi_fresh_sub:'↑ Akzeptiert',
+    kpi_rotten:'Verfault', kpi_rotten_sub:'↓ Abgelehnt',
+    kpi_acc:'Annahmequote',
+    chart_title:'Scans Pro Stunde — Heute',
+    fresh:'Frisch', rotten:'Verfault',
+    recent_scans:'Letzte Scans',
+    fresh_accepted:'Frisch — Akzeptiert', rotten_rejected:'Verfault — Abgelehnt',
+    batch_history:'Batchverlauf',
+    th_batch:'Charge', th_time:'Zeit', th_total:'Gesamt', th_rate:'Annahmequote',
+    cam_feed:'Kamerabild', cam_hint:'Klicken oder Bild ablegen zum Klassifizieren',
+    cam_change:'Klicken um Bild zu ändern',
+    last_class:'Letzte Klassifikation', upload_hint:'Bild hochladen zum Klassifizieren',
+    classify:'Kartoffel Klassifizieren',
+    set_system:'System', set_language:'Sprache', set_night:'Nachtmodus',
+    set_brightness:'Bildschirmhelligkeit', set_datetime:'Datum &amp; Uhrzeit',
+    set_autoshutdown:'Auto Abschalten', set_machineid:'Maschinen-ID',
+    set_version:'Softwareversion',
+    set_logging:'Protokoll', set_autosave:'Scans Automatisch Speichern',
+    set_export:'Exportformat', set_retention:'Aufbewahrungsdauer',
+    set_loglevel:'Log-Detailstufe', set_storage:'Speicherort',
+    set_clear:'Alle Logs Löschen', set_download:'Log Herunterladen',
+    btn_clear:'Löschen', btn_download:'Herunterladen',
+    toast_night_on:'Nachtmodus aktiviert', toast_night_off:'Nachtmodus deaktiviert',
+    toast_logs_cleared:'Logs gelöscht',
+    alert_confirm_clear:'Alle Logs löschen?',
+  },
+  fr: {
+    tagline:'Système de Classification des Pommes de Terre',
+    machine_online:'Machine en Ligne',
+    nav_dashboard:'Tableau de Bord', nav_count:'Comptage', nav_camera:'Caméra', nav_settings:'Paramètres',
+    kpi_total:'Scans Aujourd\'hui', kpi_total_sub:'Scans traités',
+    kpi_fresh:'Frais', kpi_fresh_sub:'↑ Accepté',
+    kpi_rotten:'Pourri', kpi_rotten_sub:'↓ Rejeté',
+    kpi_acc:'Taux d\'Acceptation',
+    chart_title:'Scans Par Heure — Aujourd\'hui',
+    fresh:'Frais', rotten:'Pourri',
+    recent_scans:'Scans Récents',
+    fresh_accepted:'Frais — Accepté', rotten_rejected:'Pourri — Rejeté',
+    batch_history:'Historique des Lots',
+    th_batch:'Lot', th_time:'Heure', th_total:'Total', th_rate:'Taux Acc.',
+    cam_feed:'Flux Caméra', cam_hint:'Cliquer ou déposer une image à classer',
+    cam_change:'Cliquer pour changer l\'image',
+    last_class:'Dernière Classification', upload_hint:'Importer une image à classifier',
+    classify:'Classifier Pomme de Terre',
+    set_system:'Système', set_language:'Langue', set_night:'Mode Nuit',
+    set_brightness:'Luminosité', set_datetime:'Date &amp; Heure',
+    set_autoshutdown:'Arrêt Auto', set_machineid:'ID Machine',
+    set_version:'Version Logiciel',
+    set_logging:'Journal', set_autosave:'Sauvegarde Auto des Scans',
+    set_export:'Format d\'Export', set_retention:'Durée de Rétention',
+    set_loglevel:'Niveau de Détail', set_storage:'Emplacement',
+    set_clear:'Effacer les Logs', set_download:'Télécharger le Log',
+    btn_clear:'Effacer', btn_download:'Télécharger',
+    toast_night_on:'Mode nuit activé', toast_night_off:'Mode nuit désactivé',
+    toast_logs_cleared:'Logs effacés',
+    alert_confirm_clear:'Effacer tous les logs?',
+  },
+};
+let currentLang = 'en';
+
+function t(key) { return (TRANSLATIONS[currentLang] || TRANSLATIONS.en)[key] || key; }
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = t(key);
+    el.innerHTML = val;
+  });
+}
+
+function setLanguage(lang) {
+  currentLang = lang;
+  applyTranslations();
+  showToast(lang === 'en' ? 'Language: English' :
+            lang === 'nl' ? 'Taal: Nederlands' :
+            lang === 'de' ? 'Sprache: Deutsch' : 'Langue: Français');
+}
+
+/* ══ NIGHT MODE ══ */
+function setNightMode(on) {
+  document.body.classList.toggle('night', on);
+  showToast(t(on ? 'toast_night_on' : 'toast_night_off'));
+}
+
+/* ══ BRIGHTNESS ══ */
+function setBrightness(val) {
+  document.documentElement.style.setProperty('--brightness', val / 100);
+  document.getElementById('bright-val').textContent = val + '%';
+  updateBrightSlider(val);
+}
+function updateBrightSlider(val) {
+  const rng = document.getElementById('rng-bright');
+  rng.style.background = `linear-gradient(to right,var(--green) ${val}%,var(--faint) ${val}%)`;
+}
+updateBrightSlider(100);
+
+/* ══ TOAST ══ */
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ══ TAB NAV ══ */
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ══ CLOCK ══ */
+function tick() {
+  const d = new Date();
+  const t2 = [d.getHours(), d.getMinutes(), d.getSeconds()]
+    .map(n => String(n).padStart(2,'0')).join(':');
+  document.getElementById('clock').textContent  = t2;
+  document.getElementById('cam-ts').textContent = t2;
+}
+setInterval(tick, 1000); tick();
+
+/* Timezone display */
+try {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace('_',' ');
+  document.getElementById('set-tz').textContent = tz;
+} catch(e) {}
+
+/* ══ BATCH TABLE ══ */
+function batchHour(hoursAgo) {
+  const h = (new Date().getHours() - hoursAgo + 24) % 24;
+  return String(h).padStart(2,'0') + ':00';
+}
+const batches = [
+  { b:'#056', t: batchHour(0),  tot:312, fr:274, ro:38, rate:87.8 },
+  { b:'#055', t: batchHour(1),  tot:281, fr:243, ro:38, rate:86.5 },
+  { b:'#054', t: batchHour(2),  tot:328, fr:295, ro:33, rate:89.9 },
+  { b:'#053', t: batchHour(3),  tot:305, fr:260, ro:45, rate:85.2 },
+  { b:'#052', t: batchHour(4),  tot:358, fr:318, ro:38, rate:89.3 },
+  { b:'#051', t: batchHour(5),  tot:298, fr:261, ro:37, rate:87.6 },
+  { b:'#050', t: batchHour(6),  tot:267, fr:241, ro:27, rate:90.3 },
+  { b:'#049', t: batchHour(7),  tot:341, fr:302, ro:39, rate:88.6 },
+  { b:'#048', t: batchHour(8),  tot:289, fr:249, ro:40, rate:86.2 },
+  { b:'#047', t: batchHour(9),  tot:317, fr:284, ro:33, rate:89.6 },
+  { b:'#046', t: batchHour(10), tot:276, fr:238, ro:38, rate:86.2 },
+  { b:'#045', t: batchHour(11), tot:308, fr:271, ro:37, rate:88.0 },
+];
+const tbody = document.getElementById('batch-body');
+batches.forEach(r => {
+  const cls = r.rate >= 88 ? 'badge-green' : 'badge-yellow';
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="td-m">${r.b}</td><td class="td-m">${r.t}</td>
+    <td>${r.tot}</td><td class="td-g">${r.fr}</td><td class="td-r">${r.ro}</td>
+    <td><span class="badge ${cls}">${r.rate}%</span></td>`;
+  tbody.appendChild(tr);
+});
+
+/* ══ REAL POTATO THUMBNAILS ══ */
+const freshImgs  = [
+  'potato_imgs/fresh/fresh_0057.jpg',
+  'potato_imgs/fresh/fresh_0060.jpg',
+  'potato_imgs/fresh/fresh_0064.jpg',
+  'potato_imgs/fresh/fresh_0066.jpg',
+  'potato_imgs/fresh/fresh_0074.jpg',
+  'potato_imgs/fresh/fresh_0082.jpg',
+  'potato_imgs/fresh/fresh_0085.jpg',
+  'potato_imgs/fresh/fresh_0100.jpg',
+];
+const rottenImgs = [
+  'potato_imgs/rotten/rotten_0016.jpg',
+  'potato_imgs/rotten/rotten_0031.jpg',
+  'potato_imgs/rotten/rotten_0044.jpg',
+  'potato_imgs/rotten/rotten_0045.jpg',
+  'potato_imgs/rotten/rotten_0046.jpg',
+  'potato_imgs/rotten/rotten_0057.jpg',
+  'potato_imgs/rotten/rotten_0060.jpg',
+  'potato_imgs/rotten/rotten_0066.jpg',
+];
+
+/* Mixed initial scan order (4 fresh, 4 rotten, alternating) */
+const initScanTypes = ['fresh','rotten','fresh','fresh','rotten','fresh','rotten','fresh'];
+let freshIdx  = 0;
+let rottenIdx = 0;
+
+function buildThumbs(id) {
+  const c = document.getElementById(id);
+  const base = window.location.origin;
+  let fi = 0, ri = 0;
+  initScanTypes.forEach(type => {
+    const d   = document.createElement('div');
+    d.className = `thumb t-${type}`;
+    const rel = type === 'fresh' ? freshImgs[fi++ % freshImgs.length]
+                                 : rottenImgs[ri++ % rottenImgs.length];
+    const src = base + '/' + rel;
+    const lbl = type === 'fresh' ? t('fresh') : t('rotten');
+    d.innerHTML = `
+      <div class="thumb-inner"><img src="${src}" alt="${lbl}" loading="lazy" /></div>
+      <div class="thumb-badge">${lbl.toUpperCase()}</div>`;
+    c.appendChild(d);
+  });
+}
+buildThumbs('scans-dash');
+buildThumbs('scans-cam');
+
+/* ══ CHART ══ */
+function makeChartLabels(n) {
+  const h = new Date().getHours();
+  return Array.from({length: n}, (_, i) => String((h - i + 24) % 24).padStart(2,'0') + ':00');
+}
+const allFreshVals  = [274,295,260,318,261,267,255,278,241,234,248,263];
+const allRottenVals = [38, 33, 45, 38, 37, 27, 31, 34, 27, 30, 28, 35];
+let chartHours = 10;
+const chartLabels  = makeChartLabels(chartHours);
+const freshVals    = allFreshVals.slice(0, chartHours);
+const rottenVals   = allRottenVals.slice(0, chartHours);
+
+const chart = new Chart(document.getElementById('chartMain'), {
+  type: 'bar',
+  data: {
+    labels: chartLabels,
+    datasets: [
+      { label:'Fresh',  data:[...freshVals],
+        backgroundColor:'rgba(1,175,80,.65)',  borderColor:'#01AF50', borderWidth:1, borderRadius:4 },
+      { label:'Rotten', data:[...rottenVals],
+        backgroundColor:'rgba(189,73,73,.65)', borderColor:'#BD4949', borderWidth:1, borderRadius:4 },
+    ]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{ backgroundColor:'#0d3939', borderColor:'rgba(255,255,255,.1)',
+        borderWidth:1, padding:10,
+        titleFont:{family:'Share Tech Mono',size:11},
+        bodyFont:{family:'Share Tech Mono',size:11} }
+    },
+    scales:{
+      x:{ grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'rgba(255,255,255,.45)',font:{family:'Share Tech Mono',size:10}} },
+      y:{ grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'rgba(255,255,255,.45)',font:{family:'Share Tech Mono',size:10}} }
+    }
+  }
+});
+
+/* ══ KPI STATE (static — updated only on real classifications) ══ */
+let total  = 3000;
+let fresh  = 2850;
+let rotten = 150;
+let scanNum = 3000;
+const fmt = n => n.toLocaleString('en-US');
+
+function updateKpiDisplay() {
+  const freshPct = fresh / total * 100;
+  const rotPct   = rotten / total * 100;
+  document.getElementById('kv-total').textContent   = fmt(total);
+  document.getElementById('kv-fresh').textContent   = fmt(fresh);
+  document.getElementById('kv-rotten').textContent  = fmt(rotten);
+  document.getElementById('kv-acc').textContent     = freshPct.toFixed(1) + '%';
+  document.getElementById('cnt-fresh').textContent  = fmt(fresh);
+  document.getElementById('cnt-rotten').textContent = fmt(rotten);
+  const elTotal = document.getElementById('cnt-total');
+  if (elTotal) elTotal.textContent = fmt(total);
+  document.getElementById('bar-fresh').style.width  = freshPct.toFixed(2) + '%';
+  document.getElementById('bar-rotten').style.width = rotPct.toFixed(2) + '%';
+  document.getElementById('pct-fresh').textContent  = freshPct.toFixed(2) + '%';
+  document.getElementById('pct-rotten').textContent = rotPct.toFixed(2) + '%';
+  document.getElementById('scan-ticker').textContent = 'SCAN #' + scanNum;
+}
+
+/* ══ UPLOAD & PREDICT ══ */
+const API = '/predict';
+let selectedFile = null;
+
+function triggerUpload() {
+  document.getElementById('file-input').click();
+}
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) selectFile(e.target.files[0]);
+});
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('cam-feed').style.borderColor = '';
+  if (e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]);
+}
+function selectFile(f) {
+  selectedFile = f;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const preview     = document.getElementById('cam-preview');
+    const placeholder = document.getElementById('cam-placeholder');
+    preview.src           = ev.target.result;
+    preview.style.display = 'block';
+    placeholder.style.display = 'none';
+    document.getElementById('cam-topbar').style.display    = '';
+    document.getElementById('cam-reticle').style.display   = '';
+    document.getElementById('cam-bottombar').style.display = '';
+  };
+  reader.readAsDataURL(f);
+  document.getElementById('classify-bar').style.display = 'block';
+  document.getElementById('error-msg').style.display    = 'none';
+  const autoClassify = document.getElementById('tog-autoclassify');
+  if (autoClassify && autoClassify.checked) {
+    setTimeout(() => runPredict({stopPropagation:()=>{}}), 400);
+  }
+}
+
+async function runPredict(e) {
+  e.stopPropagation();
+  if (!selectedFile) return;
+
+  const btn = document.getElementById('classify-btn');
+  btn.disabled = true;
+  document.getElementById('btn-label').textContent     = t('classify') + '...';
+  document.getElementById('btn-spinner').style.display = 'inline-block';
+  document.getElementById('error-msg').style.display   = 'none';
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+
+  try {
+    const resp = await fetch(API, { method:'POST', body:fd });
+    if (!resp.ok) throw new Error('Server error ' + resp.status);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const isFresh = data.class === 'fresh';
+    const fc = data.fresh_confidence;
+    const rc = data.rotten_confidence;
+    const now = new Date();
+    const ts  = [now.getHours(), now.getMinutes(), now.getSeconds()]
+                  .map(n => String(n).padStart(2,'0')).join(':');
+
+    document.getElementById('res-idle').style.display   = 'none';
+    document.getElementById('res-result').style.display = 'block';
+
+    const icon = document.getElementById('res-icon');
+    const name = document.getElementById('res-name');
+    const confThresh = parseInt((document.getElementById('rng-confidence') || {value:'75'}).value);
+    const winConf = Math.max(fc, rc);
+    const uncertain = winConf < confThresh;
+    icon.innerHTML = uncertain ? '&#10067;' : (isFresh ? '&#9989;' : '&#10060;');
+    icon.className = `res-icon ${uncertain ? '' : (isFresh ? 'ri-fresh' : 'ri-rotten')}`;
+    icon.style.background = uncertain ? 'rgba(255,200,0,.13)' : '';
+    name.textContent = uncertain ? 'UNCERTAIN' : (isFresh ? t('fresh').toUpperCase() : t('rotten').toUpperCase());
+    name.className   = uncertain ? 'res-name' : `res-name ${isFresh ? 'rn-fresh' : 'rn-rotten'}`;
+    name.style.color = uncertain ? '#ffc800' : '';
+    document.getElementById('res-time').textContent  = ts;
+    document.getElementById('cf-fresh').style.width  = fc + '%';
+    document.getElementById('cf-rotten').style.width = rc + '%';
+    document.getElementById('cp-fresh').textContent  = fc + '%';
+    document.getElementById('cp-rotten').textContent = rc + '%';
+
+    addToRecent('scans-cam',  isFresh, selectedFile);
+    addToRecent('scans-dash', isFresh, selectedFile);
+
+    total++; scanNum++;
+    if (isFresh) fresh++; else rotten++;
+    updateKpiDisplay();
+
+    /* Rotten alert check */
+    const alertOn = document.getElementById('tog-rotten-alert');
+    if (alertOn && alertOn.checked) {
+      const alertPct = parseInt(document.getElementById('rng-alert').value);
+      if ((rotten / total * 100) > alertPct) {
+        showToast('⚠ Rotten rate above ' + alertPct + '%!');
+      }
+    }
+
+    document.getElementById('cam-preview').style.outline =
+      `3px solid ${isFresh ? 'var(--green)' : 'var(--red)'}`;
+
+  } catch (err) {
+    const msg = err.message.includes('fetch')
+      ? 'Cannot reach server — is start.bat running?'
+      : err.message;
+    document.getElementById('error-msg').textContent   = msg;
+    document.getElementById('error-msg').style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    document.getElementById('btn-label').textContent       = t('classify');
+    document.getElementById('btn-spinner').style.display   = 'none';
+  }
+}
+
+function addToRecent(containerId, isFresh, file) {
+  const c   = document.getElementById(containerId);
+  const d   = document.createElement('div');
+  d.className = `thumb ${isFresh ? 't-fresh' : 't-rotten'}`;
+  const src = URL.createObjectURL(file);
+  const lbl = isFresh ? t('fresh') : t('rotten');
+  d.innerHTML = `
+    <div class="thumb-inner">
+      <img src="${src}" alt="${lbl}" />
+    </div>
+    <div class="thumb-badge">${lbl.toUpperCase()}</div>`;
+  c.insertBefore(d, c.firstChild);
+  while (c.children.length > 8) c.removeChild(c.lastChild);
+}
+
+/* ══ LOG FUNCTIONS ══ */
+function clearLogs() {
+  if (confirm(t('alert_confirm_clear'))) {
+    showToast(t('toast_logs_cleared'));
+  }
+}
+
+function downloadLog() {
+  const rows = [
+    ['timestamp','class','confidence_fresh','confidence_rotten'],
+    ['2026-03-24 11:00:01','fresh','83.3','16.7'],
+    ['2026-03-24 11:00:04','fresh','91.2','8.8'],
+    ['2026-03-24 11:00:07','rotten','12.4','87.6'],
+  ];
+  const fmt2 = document.getElementById('set-export').value;
+  let content, mime, ext;
+  if (fmt2 === 'JSON') {
+    const keys = rows[0];
+    const obj  = rows.slice(1).map(r => Object.fromEntries(keys.map((k,i)=>[k,r[i]])));
+    content = JSON.stringify(obj, null, 2);
+    mime = 'application/json'; ext = 'json';
+  } else {
+    content = rows.map(r=>r.join(',')).join('\n');
+    mime = 'text/csv'; ext = 'csv';
+  }
+  const a = document.createElement('a');
+  a.href = `data:${mime};charset=utf-8,` + encodeURIComponent(content);
+  a.download = `freshscan_log_FSM-003.${ext}`;
+  a.click();
+  showToast(t('set_download') + ' (' + fmt2 + ')');
+}
+
+/* ══ MACHINE ID ══ */
+function updateMachineId(val) {
+  const id = val.trim().toUpperCase() || 'FSM-003';
+  document.getElementById('machine-id').value = id;
+  document.querySelectorAll('.cam-info').forEach(el => {
+    el.textContent = el.textContent.replace(/FSM-\d+/, id);
+  });
+  document.querySelector('.sleep-txt').textContent = `FreshScan ${id} — Click to wake`;
+  showToast('Machine ID: ' + id);
+}
+
+/* ══ AUTO-SAVE SCANS ══
+   When enabled, each classification result is auto-downloaded as a CSV row. */
+let scanLog = [['timestamp','machine_id','class','fresh_pct','rotten_pct']];
+function autoSaveScan(cls, fc, rc) {
+  const enabled = document.getElementById('tog-autosave').checked;
+  const ts      = new Date().toISOString().replace('T',' ').slice(0,19);
+  const mid     = document.getElementById('machine-id').value;
+  scanLog.push([ts, mid, cls, fc, rc]);
+  if (enabled) {
+    showToast('Scan auto-saved (' + scanLog.length - 1 + ' total)');
+  }
+}
+
+/* ══ AUTO SHUT DOWN (sleep after 3 min of inactivity) ══ */
+let sleepTimer;
+const SLEEP_MS = 3 * 60 * 1000; // 3 minutes
+
+function resetSleepTimer() {
+  if (!document.getElementById('tog-shutdown').checked) return;
+  clearTimeout(sleepTimer);
+  sleepTimer = setTimeout(() => {
+    document.getElementById('sleep-screen').classList.add('active');
+  }, SLEEP_MS);
+}
+
+function wakeUp() {
+  document.getElementById('sleep-screen').classList.remove('active');
+  resetSleepTimer();
+}
+
+['mousemove','keydown','mousedown','touchstart','click'].forEach(ev => {
+  document.addEventListener(ev, resetSleepTimer, { passive: true });
+});
+document.getElementById('tog-shutdown').addEventListener('change', function() {
+  if (this.checked) {
+    resetSleepTimer();
+    showToast('Auto shut-down: ON (3 min)');
+  } else {
+    clearTimeout(sleepTimer);
+    showToast('Auto shut-down: OFF');
+  }
+});
+resetSleepTimer(); // start on load
+
+/* ══ RETENTION PERIOD — filter batch table ══ */
+(function() {
+  // Find the retention select by its surrounding label
+  const rows = document.querySelectorAll('.set-row');
+  rows.forEach(row => {
+    const lbl = row.querySelector('[data-i18n="set_retention"]');
+    if (!lbl) return;
+    const sel = row.querySelector('select');
+    if (!sel) return;
+    sel.id = 'set-retention';
+    sel.addEventListener('change', applyRetention);
+  });
+})();
+
+function applyRetention() {
+  const sel  = document.getElementById('set-retention');
+  if (!sel) return;
+  const days = parseInt(sel.value);
+  const rows = document.querySelectorAll('#batch-body tr');
+  // Batch table hours: 17:00, 16:00 … 11:00 — all "today"; show all for 7+
+  // For demo: show only last N rows proportionally
+  const showAll = days >= 7;
+  const maxRows = days === 7 ? 7 : days === 14 ? 7 : 7; // all 7 rows for any period
+  rows.forEach((r, i) => { r.style.display = (showAll || i < maxRows) ? '' : 'none'; });
+  showToast('Retention: ' + sel.value);
+}
+
+/* ══ LOG DETAIL LEVEL ══ */
+(function() {
+  const rows = document.querySelectorAll('.set-row');
+  rows.forEach(row => {
+    const lbl = row.querySelector('[data-i18n="set_loglevel"]');
+    if (!lbl) return;
+    const sel = row.querySelector('select');
+    if (sel) sel.id = 'set-loglevel';
+  });
+})();
+
+/* Override downloadLog to respect detail level */
+const _origDownload = downloadLog;
+window.downloadLog = function() {
+  const lvl = (document.getElementById('set-loglevel') || {}).value || 'Full';
+  const fmt2 = document.getElementById('set-export').value;
+  let rows = [['timestamp','machine_id','class','confidence_fresh','confidence_rotten']];
+
+  const allRows = [
+    ['2026-03-24 11:00:01','FSM-003','fresh','83.3','16.7'],
+    ['2026-03-24 11:00:04','FSM-003','fresh','91.2','8.8'],
+    ['2026-03-24 11:00:07','FSM-003','rotten','12.4','87.6'],
+    ['2026-03-24 11:00:10','FSM-003','fresh','77.9','22.1'],
+    ['2026-03-24 11:00:14','FSM-003','rotten','8.1','91.9'],
+  ];
+
+  let filtered;
+  if (lvl === 'Errors Only') {
+    filtered = allRows.filter(r => r[2] === 'rotten');
+  } else if (lvl === 'Summary') {
+    filtered = allRows.map(r => [r[0], r[1], r[2]]); // no confidence cols
+    rows[0] = ['timestamp','machine_id','class'];
+  } else {
+    filtered = allRows;
+  }
+
+  rows = rows.concat(filtered);
+
+  // Also include live scan log entries
+  if (scanLog.length > 1 && lvl !== 'Errors Only') {
+    const live = lvl === 'Summary'
+      ? scanLog.slice(1).map(r => [r[0], r[1], r[2]])
+      : scanLog.slice(1);
+    rows = rows.concat(live);
+  }
+
+  let content, mime, ext;
+  if (fmt2 === 'JSON') {
+    const keys = rows[0];
+    const obj  = rows.slice(1).map(r => Object.fromEntries(keys.map((k,i)=>[k,r[i]])));
+    content = JSON.stringify(obj, null, 2);
+    mime = 'application/json'; ext = 'json';
+  } else {
+    content = rows.map(r => r.join(',')).join('\n');
+    mime = 'text/csv'; ext = 'csv';
+  }
+  const a = document.createElement('a');
+  const mid = document.getElementById('machine-id').value;
+  a.href = `data:${mime};charset=utf-8,` + encodeURIComponent(content);
+  a.download = `freshscan_log_${mid}.${ext}`;
+  a.click();
+  showToast(t('set_download') + ' (' + fmt2 + ', ' + lvl + ')');
+};
+
+/* Wire auto-save into runPredict result */
+const _origPredict = runPredict;
+// Patch: intercept successful classifications
+const origAddToRecent = addToRecent;
+window.addToRecent = function(cid, isFresh, file) {
+  origAddToRecent(cid, isFresh, file);
+  if (cid === 'scans-cam') {
+    // read last confidence from DOM
+    const fc = parseFloat(document.getElementById('cp-fresh').textContent);
+    const rc = parseFloat(document.getElementById('cp-rotten').textContent);
+    autoSaveScan(isFresh ? 'fresh' : 'rotten', fc, rc);
+  }
+};
+
+/* ══ NEW SETTINGS FUNCTIONS ══ */
+
+/* Confidence Threshold */
+function setConfThreshold(val) {
+  document.getElementById('conf-val').textContent = val + '%';
+}
+
+/* Alert Threshold display */
+function setAlertThreshold(val) {
+  document.getElementById('alert-val').textContent = val + '%';
+}
+
+/* Scan Overlay toggle */
+document.getElementById('tog-overlay').addEventListener('change', function() {
+  const reticle = document.querySelector('.reticle');
+  if (reticle) reticle.style.display = this.checked ? '' : 'none';
+  showToast('Scan overlay: ' + (this.checked ? 'ON' : 'OFF'));
+});
+
+/* Chart Window — rebuild labels + data */
+function setChartWindow(hours) {
+  chartHours = parseInt(hours);
+  const newLabels = makeChartLabels(chartHours);
+  const newFresh  = allFreshVals.slice(0, chartHours);
+  const newRotten = allRottenVals.slice(0, chartHours);
+  chart.data.labels           = newLabels;
+  chart.data.datasets[0].data = newFresh;
+  chart.data.datasets[1].data = newRotten;
+  chart.update();
+  showToast('Chart window: ' + hours + 'h');
+}
+
+/* Auto-Classify toggle feedback */
+document.getElementById('tog-autoclassify').addEventListener('change', function() {
+  showToast('Auto-classify: ' + (this.checked ? 'ON' : 'OFF'));
+});
+
+/* Initial translation render */
+applyTranslations();
+</script>
+</body>
+</html>
